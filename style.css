@@ -476,4 +476,30 @@ textarea:focus {
     .nav-links.open {
         max-height: 320px;
     }
+    /* Animation d'apparition IntersectionObserver */
+.reveal-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.reveal-on-scroll.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Survol optimisé pour cartes produits */
+.product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+
+/* Champs invalides du formulaire */
+input.invalid, textarea.invalid {
+    border-color: #e74c3c !important;
+}
 }
