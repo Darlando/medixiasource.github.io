@@ -1,348 +1,354 @@
-document.addEventListener("DOMContentLoaded", function () {
+/**
+ * ============================================================================
+ * MEDICAL STORE PLATFORM - CORE SCRIPT (PRO 2.0)
+ * Architecture moderne orientée objet, optimisée pour la performance et l'accessibilité.
+ * ============================================================================
+ */
 
-    // ===============================
-    // OUTIL: DEBOUNCE (pou amelyore pèfòmans scroll)
-    // ===============================
-    function debounce(fn, delay = 60) {
+class MedicalStoreApp {
+    /**
+     * URL source des données de produits.
+     * @type {string}
+     */
+    static PRODUCTS_JSON_URL = "data/produits.json";
+
+    /**
+     * Produits de repli intégrés pour assurer un affichage même en cas de panne d'API/JSON.
+     * @type {Array<Object>}
+     */
+    static FALLBACK_PRODUCTS = [
+        { img: "assets/img/Tensiomètre manuel.jpg", nom: "Tensiomètre Manuel", categorie: "Matériel Médical", description: "Appareil manuel pour mesurer la pression artérielle avec précision.", prix: "49,99 €" },
+        { img: "assets/img/Tensiomètre electronique.jpg", nom: "Tensiomètre Electronique", categorie: "Matériel Médical", description: "Mesure automatique de la tension artérielle en quelques secondes.", prix: "79,99 €" },
+        { img: "assets/img/OxymètreSaturometre.jpg", nom: "Oxymètre", categorie: "Matériel Médical", description: "Mesure la saturation en oxygène du sang et le pouls.", prix: "34,50 €" },
+        { img: "assets/img/Penlight rechargeable.jpg", nom: "Penlight Médical", categorie: "Accessoires Médicaux", description: "Lampe compacte pour les examens médicaux de précision.", prix: "12,00 €" },
+        { img: "assets/img/Stéthoscope.jpg", nom: "Stéthoscope Double Foyer", categorie: "Accessoires Médicaux", description: "Instrument professionnel pour écouter les sons du cœur et des poumons.", prix: "89,90 €" },
+        { img: "assets/img/Glucometre complet.jpg", nom: "Glucomètre Complet", categorie: "Équipements Médicaux", description: "Kit complet pour mesurer la glycémie avec résultats rapides.", prix: "69,90 €" },
+        { img: "assets/img/Surblouse.jpg", nom: "Blouse Manche Longue", categorie: "Vêtements Professionnels", description: "Blouse médicale confortable et résistante pour usage quotidien.", prix: "39,99 €" },
+        { img: "assets/img/Surblouse1.jpg", nom: "Blouse Manche Courte", categorie: "Vêtements Professionnels", description: "Blouse légère idéale pour le travail en environnement médical.", prix: "35,99 €" },
+        { img: "assets/img/Bonnet jetable.jpg", nom: "Lunettes Anti-Bleu", categorie: "Accessoires Médicaux", description: "Protection des yeux contre la lumière bleue et la fatigue visuelle.", prix: "24,50 €" },
+        { img: "assets/img/Bottine infirmière.jpeg", nom: "Bottines Infirmières", categorie: "Vêtements Professionnels", description: "Chaussures de travail confortables et antidérapantes.", prix: "59,90 €" },
+        { img: "assets/img/Thermomètre digital.jpg", nom: "Thermomètre Digital", categorie: "Consommables Médicaux", description: "Thermomètre rapide et précis pour usage quotidien.", prix: "15,90 €" },
+        { img: "assets/img/Masque chirurgical.jpg", nom: "Masque Chirurgical", categorie: "Consommables Médicaux", description: "Lot de masques pour la protection en milieu médical.", prix: "9,99 €" }
+    ];
+
+    constructor() {
+        this.products = [];
+        this.activeCategory = "all";
+
+        // Éléments DOM fréquemment accédés
+        this.dom = {
+            productsContainer: document.querySelector("#products-container"),
+            filterBtnContainer: document.querySelector("#filter-buttons"),
+            navToggle: document.querySelector(".nav-toggle"),
+            navLinks: document.querySelector(".nav-links"),
+            form: document.querySelector("form")
+        };
+
+        this.init();
+    }
+
+    /**
+     * Point d'entrée initialisant l'ensemble des sous-systèmes.
+     */
+    async init() {
+        this.initScrollObserver();
+        this.initMobileMenu();
+        this.initBackToTop();
+        this.initFormValidation();
+
+        if (this.dom.productsContainer) {
+            await this.loadProducts();
+        }
+    }
+
+    // ==========================================
+    // UTILS : Performance & Utilities
+    // ==========================================
+
+    /**
+     * Utilitaire de Debounce pour réduire la fréquence d'exécution lors d'événements à fort débit.
+     * @param {Function} fn - Fonction à exécuter
+     * @param {number} delay - Délai en millisecondes
+     */
+    static debounce(fn, delay = 60) {
         let timer = null;
-        return function (...args) {
+        return (...args) => {
             clearTimeout(timer);
             timer = setTimeout(() => fn.apply(this, args), delay);
         };
     }
 
-    // ===============================
-    // EFFET D'APPARITION AU SCROLL
-    // ===============================
-    function appearOnScroll() {
-        const sections = document.querySelectorAll("section, .container");
-        const windowBottom = window.innerHeight + window.scrollY;
+    // ==========================================
+    // ANIMATIONS AU SCROLL (IntersectionObserver Pro)
+    // ==========================================
 
-        sections.forEach(sec => {
-            // Ne pas retoucher une section déjà révélée : évite le clignotement
-            if (sec.dataset.revealed === "true") return;
+    /**
+     * Remplace le calcul lourd sur window.scroll par l'API native IntersectionObserver.
+     * Optimisé pour conserver 60 FPS lors du défilement.
+     */
+    initScrollObserver() {
+        const targets = document.querySelectorAll("section, .container");
+        if (!targets.length) return;
 
-            sec.style.opacity = 0;
-            sec.style.transition = "opacity 1s ease-out, transform 1s ease-out";
-            sec.style.transform = "translateY(30px)";
+        const observerOptions = {
+            root: null,
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
 
-            if (windowBottom > sec.offsetTop + 50) {
-                sec.style.opacity = 1;
-                sec.style.transform = "translateY(0)";
-                sec.dataset.revealed = "true";
-            }
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("revealed");
+                    obs.unobserve(entry.target); // Libère la mémoire
+                }
+            });
+        }, observerOptions);
+
+        targets.forEach(target => {
+            target.classList.add("reveal-on-scroll");
+            observer.observe(target);
         });
     }
 
-    window.addEventListener("scroll", debounce(appearOnScroll, 50));
+    // ==========================================
+    // NAVIGATION ET MENU MOBILE
+    // ==========================================
 
-    // ===============================
-    // MENU MOBILE
-    // ===============================
-    const navToggle = document.querySelector(".nav-toggle");
-    const navLinks = document.querySelector(".nav-links");
-    if (navToggle && navLinks) {
-        navToggle.addEventListener("click", function () {
+    initMobileMenu() {
+        const { navToggle, navLinks } = this.dom;
+        if (!navToggle || !navLinks) return;
+
+        navToggle.addEventListener("click", () => {
             const isOpen = navLinks.classList.toggle("open");
             navToggle.setAttribute("aria-expanded", isOpen.toString());
         });
 
-        navLinks.querySelectorAll("a").forEach(link => {
-            link.addEventListener("click", () => {
+        // Fermeture automatique lors du clic sur un lien de navigation
+        navLinks.addEventListener("click", (e) => {
+            if (e.target.tagName === "A") {
                 navLinks.classList.remove("open");
                 navToggle.setAttribute("aria-expanded", "false");
-            });
+            }
         });
     }
 
-    // ===============================
-    // CHARGEMENT DYNAMIQUE DES PRODUITS
-    // ===============================
-    const PRODUCTS_JSON_URL = "data/produits.json";
+    // ==========================================
+    // GESTION DU CATALOGUE PRODUITS
+    // ==========================================
 
-    const fallbackProducts = [
-        {
-            img: "assets/img/Tensiomètre manuel.jpg",
-            nom: "Tensiomètre Manuel",
-            categorie: "Matériel Médical",
-            description: "Appareil manuel pour mesurer la pression artérielle avec précision.",
-            prix: "49,99 €"
-        },
-        {
-            img: "assets/img/Tensiomètre electronique.jpg",
-            nom: "Tensiomètre Electronique",
-            categorie: "Matériel Médical",
-            description: "Mesure automatique de la tension artérielle en quelques secondes.",
-            prix: "79,99 €"
-        },
-        {
-            img: "assets/img/OxymètreSaturometre.jpg",
-            nom: "Oxymètre",
-            categorie: "Matériel Médical",
-            description: "Mesure la saturation en oxygène du sang et le pouls.",
-            prix: "34,50 €"
-        },
-        {
-            img: "assets/img/Penlight rechargeable.jpg",
-            nom: "Penlight Médical",
-            categorie: "Accessoires Médicaux",
-            description: "Lampe compacte pour les examens médicaux de précision.",
-            prix: "12,00 €"
-        },
-        {
-            img: "assets/img/Stéthoscope.jpg",
-            nom: "Stéthoscope Double Foyer",
-            categorie: "Accessoires Médicaux",
-            description: "Instrument professionnel pour écouter les sons du cœur et des poumons.",
-            prix: "89,90 €"
-        },
-        {
-            img: "assets/img/Glucometre complet.jpg",
-            nom: "Glucomètre Complet",
-            categorie: "Équipements Médicaux",
-            description: "Kit complet pour mesurer la glycémie avec résultats rapides.",
-            prix: "69,90 €"
-        },
-        {
-            img: "assets/img/Surblouse.jpg",
-            nom: "Blouse Manche Longue",
-            categorie: "Vêtements Professionnels",
-            description: "Blouse médicale confortable et résistante pour usage quotidien.",
-            prix: "39,99 €"
-        },
-        {
-            img: "assets/img/Surblouse1.jpg",
-            nom: "Blouse Manche Courte",
-            categorie: "Vêtements Professionnels",
-            description: "Blouse légère idéale pour le travail en environnement médical.",
-            prix: "35,99 €"
-        },
-        {
-            img: "assets/img/Bonnet jetable.jpg",
-            nom: "Lunettes Anti-Bleu",
-            categorie: "Accessoires Médicaux",
-            description: "Protection des yeux contre la lumière bleue et la fatigue visuelle.",
-            prix: "24,50 €"
-        },
-        {
-            img: "assets/img/Bottine infirmière.jpeg",
-            nom: "Bottines Infirmières",
-            categorie: "Vêtements Professionnels",
-            description: "Chaussures de travail confortables et antidérapantes.",
-            prix: "59,90 €"
-        },
-        {
-            img: "assets/img/Thermomètre digital.jpg",
-            nom: "Thermomètre Digital",
-            categorie: "Consommables Médicaux",
-            description: "Thermomètre rapide et précis pour usage quotidien.",
-            prix: "15,90 €"
-        },
-        {
-            img: "assets/img/Masque chirurgical.jpg",
-            nom: "Masque Chirurgical",
-            categorie: "Consommables Médicaux",
-            description: "Lot de masques pour la protection en milieu médical.",
-            prix: "9,99 €"
-        }
-    ];
-
-    async function loadProducts() {
-        const container = document.querySelector("#products-container");
-        if (!container) return;
-
+    /**
+     * Charge les données dynamiques via Fetch API avec repli gracieux (Graceful Degradation).
+     */
+    async loadProducts() {
         try {
-            const response = await fetch(PRODUCTS_JSON_URL);
-            if (!response.ok) throw new Error("Réponse réseau invalide");
+            const response = await fetch(MedicalStoreApp.PRODUCTS_JSON_URL);
+            if (!response.ok) throw new Error(`Erreur réseau HTTP (${response.status})`);
 
-            const products = await response.json();
-            if (!Array.isArray(products) || products.length === 0) {
-                throw new Error("JSON vide ou invalide");
-            }
+            const data = await response.json();
+            if (!Array.isArray(data) || data.length === 0) throw new Error("JSON invalide ou vide");
 
-            renderProducts(products, false);
-        } catch (err) {
-            // Le fichier JSON n'existe pas encore ou a échoué : on utilise le repli local
-            renderProducts(fallbackProducts, true);
+            this.products = data;
+            this.renderCatalog(false);
+        } catch (error) {
+            console.warn("Échec du chargement des produits distants. Utilisation des données locales.", error);
+            this.products = MedicalStoreApp.FALLBACK_PRODUCTS;
+            this.renderCatalog(true);
         }
     }
 
-    function renderProducts(products, fallback = false) {
-        const container = document.querySelector("#products-container");
-        if (!container) return;
+    /**
+     * Orchestre la mise en place des filtres et l'affichage initial.
+     * @param {boolean} isFallback - Indique si les données proviennent du secours local.
+     */
+    renderCatalog(isFallback = false) {
+        const categories = [...new Set(this.products.map(p => p.categorie))];
 
-        container.innerHTML = fallback
-            ? "<p class='error'>Impossible de charger le JSON, affichage depuis le repli local.</p>"
-            : "";
-
-        const categories = [...new Set(products.map(product => product.categorie))];
-
-        setupFilters(categories, products);
-        displayProducts(products, "all");
-
-        animateCards();
-        appearOnScroll();
+        this.setupFilterButtons(categories);
+        this.displayProducts(isFallback);
     }
 
-    function setupFilters(categories, products) {
-        const filterBtnContainer = document.querySelector("#filter-buttons");
+    /**
+     * Génère les boutons de filtre dynamiquement et gère l'état actif.
+     * @param {Array<string>} categories
+     */
+    setupFilterButtons(categories) {
+        const { filterBtnContainer } = this.dom;
         if (!filterBtnContainer) return;
 
-        // Réinitialiser les boutons (garder le bouton "Tous les produits")
-        filterBtnContainer.innerHTML = '<button class="filter-btn active" data-category="all">Tous les produits</button>';
+        // Fragment DOM pour minimiser le reflow
+        const fragment = document.createDocumentFragment();
+
+        const allBtn = document.createElement("button");
+        allBtn.className = "filter-btn active";
+        allBtn.dataset.category = "all";
+        allBtn.textContent = "Tous les produits";
+        fragment.appendChild(allBtn);
 
         categories.forEach(category => {
             const btn = document.createElement("button");
             btn.className = "filter-btn";
-            btn.setAttribute("data-category", category);
+            btn.dataset.category = category;
             btn.textContent = category;
-            filterBtnContainer.appendChild(btn);
+            fragment.appendChild(btn);
         });
 
-        const filterButtons = filterBtnContainer.querySelectorAll(".filter-btn");
-        filterButtons.forEach(btn => {
-            btn.addEventListener("click", () => {
-                filterButtons.forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
+        filterBtnContainer.innerHTML = "";
+        filterBtnContainer.appendChild(fragment);
 
-                const selectedCategory = btn.getAttribute("data-category");
-                displayProducts(products, selectedCategory);
-            });
+        // Délégation d'événement sur le parent
+        filterBtnContainer.addEventListener("click", (e) => {
+            const targetBtn = e.target.closest(".filter-btn");
+            if (!targetBtn) return;
+
+            filterBtnContainer.querySelectorAll(".filter-btn").forEach(btn => btn.classList.remove("active"));
+            targetBtn.classList.add("active");
+
+            this.activeCategory = targetBtn.dataset.category;
+            this.displayProducts();
         });
     }
 
-    function displayProducts(products, selectedCategory = "all") {
-        const container = document.querySelector("#products-container");
-        if (!container) return;
+    /**
+     * Rendu HTML du catalogue de produits.
+     * @param {boolean} isFallback 
+     */
+    displayProducts(isFallback = false) {
+        const { productsContainer } = this.dom;
+        if (!productsContainer) return;
 
-        let filteredProducts = products;
-        if (selectedCategory !== "all") {
-            filteredProducts = products.filter(product => product.categorie === selectedCategory);
+        const filteredProducts = this.activeCategory === "all"
+            ? this.products
+            : this.products.filter(p => p.categorie === this.activeCategory);
+
+        if (filteredProducts.length === 0) {
+            productsContainer.innerHTML = "<p class='no-results'>Aucun produit ne correspond à ce filtre.</p>";
+            return;
         }
 
-        const categories = [...new Set(filteredProducts.map(product => product.categorie))];
+        const categories = [...new Set(filteredProducts.map(p => p.categorie))];
 
-        container.innerHTML = categories.map(category => {
-            const cards = filteredProducts
-                .filter(product => product.categorie === category)
-                .map(product => `
-                    <article class="card">
-                        <img src="${product.img}" alt="${product.nom}">
-                        <div class="product-meta">
-                            <p class="category">${product.categorie}</p>
-                            <h3>${product.nom}</h3>
-                            <p>${product.description}</p>
-                            <p class="price">${product.prix}</p>
-                        </div>
-                    </article>
-                `).join("");
+        const errorMessage = isFallback 
+            ? "<p class='error-banner'>Mode hors ligne / Données locales affichées.</p>" 
+            : "";
+
+        const catalogHTML = categories.map(category => {
+            const categoryCards = filteredProducts
+                .filter(p => p.categorie === category)
+                .map(p => this.createProductCardHTML(p))
+                .join("");
 
             return `
                 <section class="product-section">
                     <h2>${category}</h2>
-                    <div class="products">${cards}</div>
+                    <div class="products-grid">${categoryCards}</div>
                 </section>
             `;
         }).join("");
 
-        if (filteredProducts.length === 0) {
-            container.innerHTML = "<p class='no-results'>Aucun produit ne correspond à ce filtre.</p>";
-        }
-
-        animateCards();
-        appearOnScroll();
+        productsContainer.innerHTML = errorMessage + catalogHTML;
+        
+        // Réinitialise l'observation des nouveaux éléments générés
+        this.initScrollObserver();
     }
 
-    function animateCards() {
-        const cards = document.querySelectorAll(".card");
-        cards.forEach(card => {
-            card.style.transition = "transform 0.3s, box-shadow 0.3s";
-            card.addEventListener("mouseover", () => {
-                card.style.transform = "scale(1.07)";
-                card.style.boxShadow = "0 8px 20px rgba(0,0,0,0.3)";
-            });
-            card.addEventListener("mouseout", () => {
-                card.style.transform = "scale(1)";
-                card.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-            });
-        });
+    /**
+     * Génère le template d'une carte produit.
+     * @param {Object} product
+     * @returns {string} HTML string
+     */
+    createProductCardHTML(product) {
+        const { img, nom, categorie, description, prix } = product;
+        return `
+            <article class="card product-card">
+                <div class="card-media">
+                    <img src="${img}" alt="${nom}" loading="lazy">
+                </div>
+                <div class="product-meta">
+                    <span class="category">${categorie}</span>
+                    <h3>${nom}</h3>
+                    <p class="description">${description}</p>
+                    <p class="price">${prix}</p>
+                </div>
+            </article>
+        `;
     }
 
-    loadProducts();
+    // ==========================================
+    // FORMULAIRE ET VALIDATION
+    // ==========================================
 
-    // ===============================
-    // FORMULAIRE
-    // ===============================
-    const form = document.querySelector("form");
-    if (form) {
-        const nomInput = form.querySelector("#nom") || form.querySelector("input[type='text']");
-        const emailInput = form.querySelector("#email") || form.querySelector("input[type='email']");
-        const messageInput = form.querySelector("#message") || form.querySelector("textarea");
+    initFormValidation() {
+        const { form } = this.dom;
+        if (!form) return;
+
         const inputs = form.querySelectorAll("input, textarea");
 
-        form.addEventListener("submit", function (e) {
+        form.addEventListener("submit", (e) => {
             e.preventDefault();
-            let valide = true;
-            inputs.forEach(input => input.style.borderColor = "#ccc");
+            let isValid = true;
 
-            const nom = nomInput ? nomInput.value.trim() : "";
-            const email = emailInput ? emailInput.value.trim() : "";
-            const message = messageInput ? messageInput.value.trim() : "";
+            const nomInput = form.querySelector("#nom") || form.querySelector("input[type='text']");
+            const emailInput = form.querySelector("#email") || form.querySelector("input[type='email']");
+            const messageInput = form.querySelector("#message") || form.querySelector("textarea");
 
-            if (nom === "" && nomInput) {
-                nomInput.style.borderColor = "red";
-                valide = false;
-            }
-            if ((email === "" || !email.includes("@")) && emailInput) {
-                emailInput.style.borderColor = "red";
-                valide = false;
-            }
-            if (message === "" && messageInput) {
-                messageInput.style.borderColor = "red";
-                valide = false;
+            // Réinitialisation des styles d'erreur
+            inputs.forEach(input => input.classList.remove("invalid"));
+
+            if (nomInput && !nomInput.value.trim()) {
+                this.markInvalid(nomInput);
+                isValid = false;
             }
 
-            if (!valide) {
-                alert("Veuillez remplir correctement tous les champs !");
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (emailInput && !emailRegex.test(emailInput.value.trim())) {
+                this.markInvalid(emailInput);
+                isValid = false;
+            }
+
+            if (messageInput && !messageInput.value.trim()) {
+                this.markInvalid(messageInput);
+                isValid = false;
+            }
+
+            if (!isValid) {
+                alert("Veuillez remplir correctement tous les champs requis !");
                 return;
             }
 
-            alert("Message envoyé !");
+            alert("Votre message a été envoyé avec succès !");
             form.reset();
-        });
-
-        inputs.forEach(input => {
-            input.addEventListener("focus", () => input.style.borderColor = "#1aa36f");
-            input.addEventListener("blur", () => input.style.borderColor = "#ccc");
         });
     }
 
-    // ===============================
-    // BOUTON HAUT DE PAGE
-    // ===============================
-    const btnTop = document.createElement("button");
-    btnTop.className = "back-to-top";
-    btnTop.setAttribute("aria-label", "Remonter en haut");
-    btnTop.innerHTML = "↑";
-    document.body.appendChild(btnTop);
+    markInvalid(inputElement) {
+        inputElement.classList.add("invalid");
+    }
 
-    window.addEventListener("scroll", debounce(() => {
-        btnTop.classList.toggle("show", window.scrollY > 200);
-    }, 50));
+    // ==========================================
+    // BOUTON HAUT DE PAGE (BACK TO TOP)
+    // ==========================================
 
-    btnTop.addEventListener("click", () => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    initBackToTop() {
+        const btnTop = document.createElement("button");
+        btnTop.className = "back-to-top";
+        btnTop.setAttribute("aria-label", "Remonter en haut de page");
+        btnTop.innerHTML = "↑";
+        document.body.appendChild(btnTop);
 
-    // ===============================
-    // LIENS DU MENU - EFFET HOVER
-    // ===============================
-    const navLinksAnimated = document.querySelectorAll("nav a");
-    navLinksAnimated.forEach(link => {
-        link.style.transition = "color 0.3s, transform 0.2s";
-        link.addEventListener("mouseover", () => link.style.transform = "scale(1.1)");
-        link.addEventListener("mouseout", () => link.style.transform = "scale(1)");
-    });
+        const toggleVisibility = MedicalStoreApp.debounce(() => {
+            btnTop.classList.toggle("show", window.scrollY > 300);
+        }, 50);
 
-    appearOnScroll();
+        window.addEventListener("scroll", toggleVisibility);
+
+        btnTop.addEventListener("click", () => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+    }
+}
+
+// Initialisation dès que le DOM est prêt
+document.addEventListener("DOMContentLoaded", () => {
+    new MedicalStoreApp();
 });
