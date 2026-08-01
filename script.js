@@ -1,21 +1,41 @@
-﻿document.addEventListener("DOMContentLoaded", function () {// ===============================
-// EFFET D'APPARITION AU SCROLL
-// ===============================
-function appearOnScroll() {
-    const sections = document.querySelectorAll("section, .container");
-    const windowBottom = window.innerHeight + window.scrollY;
-    sections.forEach(sec => {
-        sec.style.opacity = 0;
-        sec.style.transition = "opacity 1s ease-out, transform 1s ease-out";
-        sec.style.transform = "translateY(30px)";
-        if (windowBottom > sec.offsetTop + 50) {
-            sec.style.opacity = 1;
-            sec.style.transform = "translateY(0)";
-        }
-    });
-}
+document.addEventListener("DOMContentLoaded", function () {
 
-window.addEventListener("scroll", appearOnScroll);
+    // ===============================
+    // OUTIL: DEBOUNCE (pou amelyore pèfòmans scroll)
+    // ===============================
+    function debounce(fn, delay = 60) {
+        let timer = null;
+        return function (...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ===============================
+    // EFFET D'APPARITION AU SCROLL
+    // ===============================
+    function appearOnScroll() {
+        const sections = document.querySelectorAll("section, .container");
+        const windowBottom = window.innerHeight + window.scrollY;
+
+        sections.forEach(sec => {
+            // Ne pas retoucher une section déjà révélée : évite le clignotement
+            if (sec.dataset.revealed === "true") return;
+
+            sec.style.opacity = 0;
+            sec.style.transition = "opacity 1s ease-out, transform 1s ease-out";
+            sec.style.transform = "translateY(30px)";
+
+            if (windowBottom > sec.offsetTop + 50) {
+                sec.style.opacity = 1;
+                sec.style.transform = "translateY(0)";
+                sec.dataset.revealed = "true";
+            }
+        });
+    }
+
+    window.addEventListener("scroll", debounce(appearOnScroll, 50));
+
     // ===============================
     // MENU MOBILE
     // ===============================
@@ -38,112 +58,126 @@ window.addEventListener("scroll", appearOnScroll);
     // ===============================
     // CHARGEMENT DYNAMIQUE DES PRODUITS
     // ===============================
+    const PRODUCTS_JSON_URL = "data/produits.json";
+
+    const fallbackProducts = [
+        {
+            img: "assets/img/Tensiomètre manuel.jpg",
+            nom: "Tensiomètre Manuel",
+            categorie: "Matériel Médical",
+            description: "Appareil manuel pour mesurer la pression artérielle avec précision.",
+            prix: "49,99 €"
+        },
+        {
+            img: "assets/img/Tensiomètre electronique.jpg",
+            nom: "Tensiomètre Electronique",
+            categorie: "Matériel Médical",
+            description: "Mesure automatique de la tension artérielle en quelques secondes.",
+            prix: "79,99 €"
+        },
+        {
+            img: "assets/img/OxymètreSaturometre.jpg",
+            nom: "Oxymètre",
+            categorie: "Matériel Médical",
+            description: "Mesure la saturation en oxygène du sang et le pouls.",
+            prix: "34,50 €"
+        },
+        {
+            img: "assets/img/Penlight rechargeable.jpg",
+            nom: "Penlight Médical",
+            categorie: "Accessoires Médicaux",
+            description: "Lampe compacte pour les examens médicaux de précision.",
+            prix: "12,00 €"
+        },
+        {
+            img: "assets/img/Stéthoscope.jpg",
+            nom: "Stéthoscope Double Foyer",
+            categorie: "Accessoires Médicaux",
+            description: "Instrument professionnel pour écouter les sons du cœur et des poumons.",
+            prix: "89,90 €"
+        },
+        {
+            img: "assets/img/Glucometre complet.jpg",
+            nom: "Glucomètre Complet",
+            categorie: "Équipements Médicaux",
+            description: "Kit complet pour mesurer la glycémie avec résultats rapides.",
+            prix: "69,90 €"
+        },
+        {
+            img: "assets/img/Surblouse.jpg",
+            nom: "Blouse Manche Longue",
+            categorie: "Vêtements Professionnels",
+            description: "Blouse médicale confortable et résistante pour usage quotidien.",
+            prix: "39,99 €"
+        },
+        {
+            img: "assets/img/Surblouse1.jpg",
+            nom: "Blouse Manche Courte",
+            categorie: "Vêtements Professionnels",
+            description: "Blouse légère idéale pour le travail en environnement médical.",
+            prix: "35,99 €"
+        },
+        {
+            img: "assets/img/Bonnet jetable.jpg",
+            nom: "Lunettes Anti-Bleu",
+            categorie: "Accessoires Médicaux",
+            description: "Protection des yeux contre la lumière bleue et la fatigue visuelle.",
+            prix: "24,50 €"
+        },
+        {
+            img: "assets/img/Bottine infirmière.jpeg",
+            nom: "Bottines Infirmières",
+            categorie: "Vêtements Professionnels",
+            description: "Chaussures de travail confortables et antidérapantes.",
+            prix: "59,90 €"
+        },
+        {
+            img: "assets/img/Thermomètre digital.jpg",
+            nom: "Thermomètre Digital",
+            categorie: "Consommables Médicaux",
+            description: "Thermomètre rapide et précis pour usage quotidien.",
+            prix: "15,90 €"
+        },
+        {
+            img: "assets/img/Masque chirurgical.jpg",
+            nom: "Masque Chirurgical",
+            categorie: "Consommables Médicaux",
+            description: "Lot de masques pour la protection en milieu médical.",
+            prix: "9,99 €"
+        }
+    ];
+
     async function loadProducts() {
         const container = document.querySelector("#products-container");
         if (!container) return;
 
-        const fallbackProducts = [
-            {
-                img: "assets/img/Tensiomètre manuel.jpg",
-                nom: "Tensiomètre Manuel",
-                categorie: "Matériel Médical",
-                description: "Appareil manuel pour mesurer la pression artérielle avec précision.",
-                prix: "49,99 €"
-            },
-            {
-                img: "assets/img/Tensiomètre manuel.jpg",
-                nom: "Tensiomètre Electronique",
-                categorie: "Matériel Médical",
-                description: "Mesure automatique de la tension artérielle en quelques secondes.",
-                prix: "79,99 €"
-            },
-            {
-                img: "assets/img/OxymètreSaturometre.jpg",
-                nom: "Oxymètre",
-                categorie: "Matériel Médical",
-                description: "Mesure la saturation en oxygène du sang et le pouls.",
-                prix: "34,50 €"
-            },
-            {
-                img: "assets/img/Penlight rechargeable.jpg",
-                nom: "Penlight Médical",
-                categorie: "Accessoires Médicaux",
-                description: "Lampe compacte pour les examens médicaux de précision.",
-                prix: "12,00 €"
-            },
-            {
-                img: "assets/img/Otoscope.jpg",
-                nom: "Stéthoscope Double Foyer",
-                categorie: "Accessoires Médicaux",
-                description: "Instrument professionnel pour écouter les sons du cœur et des poumons.",
-                prix: "89,90 €"
-            },
-            {
-                img: "assets/img/Glucometre complet.jpg",
-                nom: "Glucomètre Complet",
-                categorie: "Équipements Médicaux",
-                description: "Kit complet pour mesurer la glycémie avec résultats rapides.",
-                prix: "69,90 €"
-            },
-            {
-                img: "assets/img/Surblouse.jpg",
-                nom: "Blouse Manche Longue",
-                categorie: "Vêtements Professionnels",
-                description: "Blouse médicale confortable et résistante pour usage quotidien.",
-                prix: "39,99 €"
-            },
-            {
-                img: "assets/img/Surblouse1.jpg",
-                nom: "Blouse Manche Courte",
-                categorie: "Vêtements Professionnels",
-                description: "Blouse légère idéale pour le travail en environnement médical.",
-                prix: "35,99 €"
-            },
-            {
-                img: "assets/img/Bonnet jetable.jpg",
-                nom: "Lunettes Anti-Bleu",
-                categorie: "Accessoires Médicaux",
-                description: "Protection des yeux contre la lumière bleue et la fatigue visuelle.",
-                prix: "24,50 €"
-            },
-            {
-                img: "assets/img/Bottine infirmière.jpeg",
-                nom: "Bottines Infirmières",
-                categorie: "Vêtements Professionnels",
-                description: "Chaussures de travail confortables et antidérapantes.",
-                prix: "59,90 €"
-            },
-            {
-                img: "assets/img/Thermomètre à mercure.jpg",
-                nom: "Thermomètre Digital",
-                categorie: "Consommables Médicaux",
-                description: "Thermomètre rapide et précis pour usage quotidien.",
-                prix: "15,90 €"
-            },
-            {
-                img: "assets/img/Bonnet jetable.jpg",
-                nom: "Masque Chirurgical",
-                categorie: "Consommables Médicaux",
-                description: "Lot de masques pour la protection en milieu médical.",
-                prix: "9,99 €"
-            }
-        ];
+        try {
+            const response = await fetch(PRODUCTS_JSON_URL);
+            if (!response.ok) throw new Error("Réponse réseau invalide");
 
-        renderProducts(fallbackProducts); 
+            const products = await response.json();
+            if (!Array.isArray(products) || products.length === 0) {
+                throw new Error("JSON vide ou invalide");
+            }
+
+            renderProducts(products, false);
+        } catch (err) {
+            // Le fichier JSON n'existe pas encore ou a échoué : on utilise le repli local
+            renderProducts(fallbackProducts, true);
+        }
     }
 
     function renderProducts(products, fallback = false) {
         const container = document.querySelector("#products-container");
         if (!container) return;
 
-        container.innerHTML = fallback ? "<p class='error'>Impossible de charger le JSON, affichage depuis le repli local.</p>" : "";
+        container.innerHTML = fallback
+            ? "<p class='error'>Impossible de charger le JSON, affichage depuis le repli local.</p>"
+            : "";
 
         const categories = [...new Set(products.map(product => product.categorie))];
-        
-        // Créer les boutons de filtrage
+
         setupFilters(categories, products);
-        
-        // Afficher les produits
         displayProducts(products, "all");
 
         animateCards();
@@ -155,9 +189,8 @@ window.addEventListener("scroll", appearOnScroll);
         if (!filterBtnContainer) return;
 
         // Réinitialiser les boutons (garder le bouton "Tous les produits")
-        const buttons = filterBtnContainer.innerHTML = '<button class="filter-btn active" data-category="all">Tous les produits</button>';
+        filterBtnContainer.innerHTML = '<button class="filter-btn active" data-category="all">Tous les produits</button>';
 
-        // Ajouter un bouton pour chaque catégorie
         categories.forEach(category => {
             const btn = document.createElement("button");
             btn.className = "filter-btn";
@@ -166,15 +199,12 @@ window.addEventListener("scroll", appearOnScroll);
             filterBtnContainer.appendChild(btn);
         });
 
-        // Ajouter les événements de clic
         const filterButtons = filterBtnContainer.querySelectorAll(".filter-btn");
         filterButtons.forEach(btn => {
             btn.addEventListener("click", () => {
-                // Mettre à jour l'état actif
                 filterButtons.forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
 
-                // Filtrer et afficher les produits
                 const selectedCategory = btn.getAttribute("data-category");
                 displayProducts(products, selectedCategory);
             });
@@ -185,15 +215,13 @@ window.addEventListener("scroll", appearOnScroll);
         const container = document.querySelector("#products-container");
         if (!container) return;
 
-        // Filtrer les produits selon la catégorie
         let filteredProducts = products;
         if (selectedCategory !== "all") {
             filteredProducts = products.filter(product => product.categorie === selectedCategory);
         }
 
-        // Regrouper par catégorie pour l'affichage
         const categories = [...new Set(filteredProducts.map(product => product.categorie))];
-        
+
         container.innerHTML = categories.map(category => {
             const cards = filteredProducts
                 .filter(product => product.categorie === category)
@@ -247,26 +275,30 @@ window.addEventListener("scroll", appearOnScroll);
     // ===============================
     const form = document.querySelector("form");
     if (form) {
+        const nomInput = form.querySelector("#nom") || form.querySelector("input[type='text']");
+        const emailInput = form.querySelector("#email") || form.querySelector("input[type='email']");
+        const messageInput = form.querySelector("#message") || form.querySelector("textarea");
         const inputs = form.querySelectorAll("input, textarea");
+
         form.addEventListener("submit", function (e) {
             e.preventDefault();
             let valide = true;
             inputs.forEach(input => input.style.borderColor = "#ccc");
 
-            const nom = form.querySelector("input[type='text']").value.trim();
-            const email = form.querySelector("input[type='email']").value.trim();
-            const message = form.querySelector("textarea").value.trim();
+            const nom = nomInput ? nomInput.value.trim() : "";
+            const email = emailInput ? emailInput.value.trim() : "";
+            const message = messageInput ? messageInput.value.trim() : "";
 
-            if (nom === "") {
-                form.querySelector("input[type='text']").style.borderColor = "red";
+            if (nom === "" && nomInput) {
+                nomInput.style.borderColor = "red";
                 valide = false;
             }
-            if (email === "" || !email.includes("@")) {
-                form.querySelector("input[type='email']").style.borderColor = "red";
+            if ((email === "" || !email.includes("@")) && emailInput) {
+                emailInput.style.borderColor = "red";
                 valide = false;
             }
-            if (message === "") {
-                form.querySelector("textarea").style.borderColor = "red";
+            if (message === "" && messageInput) {
+                messageInput.style.borderColor = "red";
                 valide = false;
             }
 
@@ -294,9 +326,9 @@ window.addEventListener("scroll", appearOnScroll);
     btnTop.innerHTML = "↑";
     document.body.appendChild(btnTop);
 
-    window.addEventListener("scroll", () => {
+    window.addEventListener("scroll", debounce(() => {
         btnTop.classList.toggle("show", window.scrollY > 200);
-    });
+    }, 50));
 
     btnTop.addEventListener("click", () => {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -311,4 +343,6 @@ window.addEventListener("scroll", appearOnScroll);
         link.addEventListener("mouseover", () => link.style.transform = "scale(1.1)");
         link.addEventListener("mouseout", () => link.style.transform = "scale(1)");
     });
-appearOnScroll();});
+
+    appearOnScroll();
+});
